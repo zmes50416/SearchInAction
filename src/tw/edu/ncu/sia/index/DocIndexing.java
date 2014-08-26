@@ -2,21 +2,18 @@ package tw.edu.ncu.sia.index;
 
 
 import java.io.*;
+import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Stack;
-
 import javax.swing.JTextArea;
 import javax.swing.text.DefaultCaret;
-
 import org.apache.commons.io.FilenameUtils;
 import org.apache.solr.client.solrj.SolrServer;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.impl.CommonsHttpSolrServer;
 import org.apache.solr.client.solrj.request.ContentStreamUpdateRequest;
-
 import org.apache.solr.client.solrj.request.AbstractUpdateRequest;
 import org.apache.solr.common.SolrInputDocument;
-
 import tw.edu.ncu.sia.util.Config;
 import tw.edu.ncu.sia.util.ServerUtil;
 
@@ -193,7 +190,8 @@ public class DocIndexing {
 			String dirName = FilenameUtils.getPath(id).replaceAll("/", "");
 			FileWriter eStream = new FileWriter(dirName+"ErrorReport.txt",true);
 			BufferedWriter eWriter = new BufferedWriter(eStream);
-			eWriter.write(id);
+			String time = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
+			eWriter.write(time+"--"+id);
 			eWriter.write(":"+e.getMessage());
 			eWriter.newLine();
 			eWriter.close();
