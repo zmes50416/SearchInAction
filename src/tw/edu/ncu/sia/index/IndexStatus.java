@@ -11,7 +11,7 @@ import tw.edu.ncu.sia.util.ServerUtil;
 
 public class IndexStatus {
 	public static void indexed(JTextArea textArea) throws Exception{
-			ServerUtil.initialize();
+			ServerUtil.getServer();
 			// initialize query
 			SolrQuery query = new SolrQuery();
 			//show info of all files

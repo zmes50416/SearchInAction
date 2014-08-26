@@ -88,12 +88,12 @@ public class DeleteDocPanel extends JPanel {
 					textArea.append("Id is invalid!");
 				}else{
 					// create a solr Server object
-					ServerUtil sol = new ServerUtil();
+					//ServerUtil sol = new ServerUtil();
 					try {
 						textArea.append("Connecting to server...");
-						sol.initialize();
+						ServerUtil.testServerConnected();
 						textArea.append("\nDeleting source file: " + jfID.getText());
-						sol.deleteDocByID(jfID.getText());
+						ServerUtil.deleteDocByID(jfID.getText());
 						textArea.append("\nTask is done.");
 						
 					} catch (Exception e1) {
@@ -113,12 +113,12 @@ public class DeleteDocPanel extends JPanel {
 					textArea.append("Project name is invalid!");
 				}else{
 					// create a solr Server object
-					ServerUtil sol = new ServerUtil();
+					
 					try {
 						textArea.append("Connecting to server...");
-						sol.initialize();
+						ServerUtil.testServerConnected();
 						textArea.append("\nDeleting source project: " + jfPName.getText());
-						sol.deleteSingleProject(jfPName.getText());
+						ServerUtil.deleteSingleProject(jfPName.getText());
 						textArea.append("\nTask is done.");
 						
 					} catch (Exception e1) {
@@ -138,11 +138,9 @@ public class DeleteDocPanel extends JPanel {
 				textArea.setCaretPosition(textArea.getDocument().getLength());
 				 
 				if(JOptionPane.YES_OPTION == JOptionPane.showConfirmDialog(null, "Are You sure Delete All DOCUMENT?!", "Warning",JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE)){
-				ServerUtil sol = new ServerUtil();
 				textArea.append("Connecting to server...");
 				try {
-					sol.initialize();
-					sol.deleteAllDoc();
+					ServerUtil.deleteAllDoc();
 				} catch (Exception e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();

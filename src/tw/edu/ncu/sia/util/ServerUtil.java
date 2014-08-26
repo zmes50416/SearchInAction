@@ -1,9 +1,9 @@
 package tw.edu.ncu.sia.util;
 
 import java.io.IOException;
+import java.net.MalformedURLException;
 import java.util.HashSet;
 import java.util.List;
-
 import org.apache.solr.common.SolrDocument;
 import org.apache.solr.common.SolrDocumentList;
 import org.apache.solr.common.SolrInputDocument;
@@ -16,39 +16,80 @@ import org.apache.solr.client.solrj.response.QueryResponse;
 import org.apache.solr.client.solrj.response.TermsResponse;
 import org.apache.solr.client.solrj.response.TermsResponse.Term;
 
-
+/**
+ * <p>access ServerConnection, can test or update server. should choose between Common or StreamUpdated ServerClass </p>
+ * {@code
+ * 		ServerUtil.testServerConnected() will connect Server to Config.url
+ * 		
+ * }
+ * @param args
+ * @throws Exception
+ */
 public class ServerUtil {
-	public static CommonsHttpSolrServer server = null;
+	
+	private static final int BATCHSIZE = 50000;//how many docs Added before Commit, higher will increase speed but dont know the side effect yet
+	private static int docsize = 0;
+	private static CommonsHttpSolrServer server=null; // Singleton Design pattern only access it by getServer() to ensure connection
+	private static ServerUtil serverUtil= new ServerUtil();
+	private ServerUtil(){
+		
+	}
+	public static CommonsHttpSolrServer getServer(){
+		if(server==null){
+			try {
+				initialize();
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+			return server;
+			
+	}
 
-	public static void initialize() throws Exception {
+	private static Boolean initialize(){
 		String url = Config.hosturl;
-		server = new StreamingUpdateSolrServer(url,150,10);
-		server.setSoTimeout(1000); // socket read timeout
-		server.setConnectionTimeout(1000);
+		try {
+			server = new StreamingUpdateSolrServer(url,200,10); // last two parameter will determined by Computer Power. Higher mean more speedy Index
+		} catch (MalformedURLException e) {
+			e.printStackTrace();
+			return false;
+		}
+		server.setSoTimeout(3000); // socket read timeout
+		server.setConnectionTimeout(3000);
 		server.setDefaultMaxConnectionsPerHost(100);
 		server.setMaxTotalConnections(100);
 		server.setFollowRedirects(false); // defaults to false
 		server.setAllowCompression(false);
 		server.setMaxRetries(1); // defaults to 0. > 1 not recommended.
+		return true;
+	}
+	public static void commit() throws SolrServerException, IOException{
+		getServer().commit();
+	}
+	//Dont do commit on every document added, batch add then commit
+	public static void addDocument(SolrInputDocument doc) throws SolrServerException, IOException{
+	
+		
+		getServer().add(doc);
+		if(docsize++ >= BATCHSIZE){
+			commit();
+			docsize = 0;
+		}
 	}
 
-	public static void addDocument(SolrInputDocument doc) throws Exception {
-		server.add(doc);
-		server.commit();
-	}
-
-	public void deleteDocByID(String id) throws Exception {
-		server.deleteById(id);
-		server.commit();
+	public static void deleteDocByID(String id) throws Exception {
+		getServer().deleteById(id);
+		getServer().commit();
 	}
 	
-	public void deleteSingleProject(String pid) throws Exception {
-		server.deleteByQuery("id:/" + pid.trim() + "/*");
-		server.commit();
+	public static void deleteSingleProject(String pid) throws Exception {
+		getServer().deleteByQuery("id:/" + pid.trim() + "/*");
+		getServer().commit();
 	}
-	public void deleteAllDoc() throws Exception{
-		server.deleteByQuery("*:*");
-		server.commit();
+	public static void deleteAllDoc() throws Exception{
+		getServer().deleteByQuery("*:*");
+		getServer().commit();
 	}
 	
 	public static SolrDocumentList query(String queryStr) throws Exception {
@@ -56,7 +97,7 @@ public class ServerUtil {
 		query.setQuery(queryStr);
 		SolrDocumentList docs = null;
 		try {
-			QueryResponse rsp = server.query(query);
+			QueryResponse rsp = getServer().query(query);
 			docs = rsp.getResults();
 		} catch (SolrServerException e) {
 			e.printStackTrace();
@@ -79,7 +120,7 @@ public class ServerUtil {
 		query.setParam("hl.requireFieldMatch", "true"); 
 		
 		try {
-			QueryResponse rsp = server.query(query);
+			QueryResponse rsp = getServer().query(query);
 			SolrDocumentList docs = rsp.getResults();
 			System.out.println("Count:" + docs.getNumFound());
 			System.out.println("Time:" + rsp.getQTime());
@@ -129,7 +170,7 @@ public class ServerUtil {
 		try {
 			for(String field : fields){
 				query.addTermsField(field);
-				QueryResponse qr = server.query(query);
+				QueryResponse qr = getServer().query(query);
 				TermsResponse resp = qr.getTermsResponse();
 				List<Term> items = resp.getTerms(field);
 				System.out.println("==field: " + field + " =======");
@@ -146,8 +187,8 @@ public class ServerUtil {
 					SolrInputDocument doc = new SolrInputDocument();
 					doc.addField("id", "meta_" + field, 1.0f);
 					doc.addField("metafield_value", fieldValue, 1.0f);
-					server.add(doc);
-					server.commit();
+					getServer().add(doc);
+					getServer().commit();
 				}
 			}
 		} catch (SolrServerException e) {
@@ -163,11 +204,11 @@ public class ServerUtil {
 		SolrQuery query = new SolrQuery();
 		//show info of all files
 		query.setQuery("file:*");
-		QueryResponse rsp = server.query(query);
+		QueryResponse rsp = getServer().query(query);
 		SolrDocumentList docs = rsp.getResults();
 		query.setParam("rows",""+docs.getNumFound());
 		query.setSortField("id", ORDER.asc);
-		rsp = server.query(query);
+		rsp = getServer().query(query);
 		docs = rsp.getResults();
 		HashSet<String> projects = new HashSet<String>();
 		if(docs.getNumFound()>0){
@@ -183,17 +224,16 @@ public class ServerUtil {
 	
 	public static QueryResponse execQuery(SolrQuery s){
 		try {
-			return server.query(s);
+			return getServer().query(s);
 		} catch (SolrServerException e) {
 			e.printStackTrace();
 			return null;
 		}
 	}
-	public static void main(String args[]) throws Exception {
-		ServerUtil test = new ServerUtil();
-		test.initialize();
-		//test.addDocTest();
-		// test.deleteDocTest();
-		test.search("field:new methodbody:new");
+	public static boolean testServerConnected(){
+			if(server==null)
+				return ServerUtil.initialize();
+			else
+				return true;
 	}
 }

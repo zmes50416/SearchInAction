@@ -6,6 +6,7 @@ import java.util.Date;
 import java.util.Stack;
 
 import javax.swing.JTextArea;
+import javax.swing.text.DefaultCaret;
 
 import org.apache.commons.io.FilenameUtils;
 import org.apache.solr.client.solrj.SolrServer;
@@ -22,18 +23,13 @@ import tw.edu.ncu.sia.util.ServerUtil;
 /** Index all text files under a directory. */
 public class DocIndexing {
 	public static JTextArea textArea = null;
-	private static int fileCount = 0;
+	private static long fileCount = 0;
 	public static Stack<SolrInputDocument> errorDocs = new Stack<SolrInputDocument>();
 	public static int timesOfError=0;
 	
 	/** Index all text files under a directory. */
 	public static void preProcess(String docName, JTextArea ta){
-		try {
-			ServerUtil.initialize();
-		} catch (Exception e1) {
-			// TODO Auto-generated catch block
-			e1.printStackTrace();
-		}
+		ServerUtil.testServerConnected();
 		fileCount = 0;
 		textArea = ta;
 		File file = null;
@@ -54,7 +50,6 @@ public class DocIndexing {
 		try {
 			textArea.append("\nIndexing a doc:\n  " + file.getName());
 			indexDocs(file);
-
 			Date end = new Date();
 			textArea.append("\n" + (end.getTime() - start.getTime())
 					+ " total milliseconds");
@@ -73,7 +68,15 @@ public class DocIndexing {
 				// an IO error could occur
 				if (files != null) {
 					for (int i = 0; i < files.length; i++) {
-						indexDocs(new File(file, files[i]));
+						File targetFile = new File(file, files[i]);
+						indexDocs(targetFile);
+						if(i==files.length){	//When File reach final point, remember to commit it
+							try {
+								ServerUtil.commit();
+							} catch (SolrServerException e) {
+								errorReport(targetFile.getAbsolutePath().replace('\\', '/'),e);
+							}
+						}
 					}
 				}
 				
@@ -112,6 +115,8 @@ public class DocIndexing {
 				}
 			}
 		}
+		DefaultCaret caret = (DefaultCaret) textArea.getCaret();
+		caret.setUpdatePolicy(DefaultCaret.ALWAYS_UPDATE);
 	}
 	static void processTXT(File file)throws IOException, SolrServerException{
 		// makes a solr document
@@ -137,10 +142,9 @@ public class DocIndexing {
 		String fileID = file.getAbsolutePath().replace('\\', '/');
 		fileID = fileID.substring(fileID.indexOf("docfolder")+9);
 		solrdoc.addField("id", fileID);
-		System.out.println("*** id:" + fileID);
+//		System.out.println("*** id:" + fileID);
 				
 		solrdoc.addField("text", getFileTxt(file));
-		
 		// commit to solr server
 		try {
 			ServerUtil.addDocument(solrdoc);
@@ -186,7 +190,7 @@ public class DocIndexing {
 	
 	private static void errorReport(String id,Exception e){
 		try {
-			String dirName = FilenameUtils.getPath(id);
+			String dirName = FilenameUtils.getPath(id).replaceAll("/", "");
 			FileWriter eStream = new FileWriter(dirName+"ErrorReport.txt",true);
 			BufferedWriter eWriter = new BufferedWriter(eStream);
 			eWriter.write(id);
