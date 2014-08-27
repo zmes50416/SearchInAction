@@ -122,12 +122,6 @@ public class IndexingPanel extends JPanel {
 					}else{
 						DocIndexing.preProcess(docNames.getText().trim(),textArea);
 					}
-					textArea.append("\n Total Error number:"+DocIndexing.timesOfError);
-					if(DocIndexing.timesOfError>0){
-						DocIndexing.errorDocs.pop();
-					}
-					/*IndexerThread it = new IndexerThread();
-					it.start();*/
 				}
 			}
 		};
