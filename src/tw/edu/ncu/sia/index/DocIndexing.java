@@ -50,6 +50,8 @@ public class DocIndexing {
 			Date end = new Date();
 			textArea.append("\n" + (end.getTime() - start.getTime())
 					+ " total milliseconds");
+			textArea.append("\n Total Error number:"+timesOfError+"\n Please check ErrorReport.xt");
+
 		} catch (IOException e) {
 			textArea.append("\n caught a " + e.getClass()
 					+ "\n with message: " + e.getMessage());
