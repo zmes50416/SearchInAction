@@ -115,8 +115,19 @@ public class IndexingPanel extends JPanel {
 				if(docNames.getText().equals("")){
 					JOptionPane.showMessageDialog(null, "Invalid doc name! Try again!!");
 				}else{
-					IndexerThread it = new IndexerThread();
-					it.start();
+					if(docNames.getText().trim().contains(",")){
+						for(String docName : docNames.getText().trim().split(",")){
+							DocIndexing.preProcess(docName,textArea);
+						}
+					}else{
+						DocIndexing.preProcess(docNames.getText().trim(),textArea);
+					}
+					textArea.append("\n Total Error number:"+DocIndexing.timesOfError);
+					if(DocIndexing.timesOfError>0){
+						DocIndexing.errorDocs.pop();
+					}
+					/*IndexerThread it = new IndexerThread();
+					it.start();*/
 				}
 			}
 		};
@@ -124,24 +135,6 @@ public class IndexingPanel extends JPanel {
 		
 	}
 	
-	/** The thread can be designed to process multiple types of input doc,
-	 *   e.g., a single doc, multiple doc names separated by ",", or a folder name.
-	 */
-	class IndexerThread extends Thread {
-		public void run() {
-			if(docNames.getText().trim().contains(",")){
-				for(String docName : docNames.getText().trim().split(",")){
-					DocIndexing.preProcess(docName,textArea);
-				}
-			}else{
-				DocIndexing.preProcess(docNames.getText().trim(),textArea);
-			}
-			textArea.append("\n Total Error number:"+DocIndexing.timesOfError);
-			if(DocIndexing.timesOfError>0){
-				DocIndexing.errorDocs.pop();
-			}
-		}
-	}
 	
 	public HashSet<String> getCodebaseProj(){
 		File dir = new File(Config.docfolder);

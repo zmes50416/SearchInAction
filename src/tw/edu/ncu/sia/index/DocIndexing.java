@@ -5,6 +5,8 @@ import java.io.*;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Stack;
+import java.util.concurrent.*;
+
 import javax.swing.JTextArea;
 import javax.swing.text.DefaultCaret;
 import org.apache.commons.io.FilenameUtils;
@@ -23,7 +25,7 @@ public class DocIndexing {
 	private static long fileCount = 0;
 	public static Stack<SolrInputDocument> errorDocs = new Stack<SolrInputDocument>();
 	public static int timesOfError=0;
-	
+	public static ConcurrentLinkedQueue<File> theFiles = new ConcurrentLinkedQueue<File>();
 	/** Index all text files under a directory. */
 	public static void preProcess(String docName, JTextArea ta){
 		ServerUtil.testServerConnected();
@@ -44,82 +46,77 @@ public class DocIndexing {
 		}
 
 		Date start = new Date();
-		try {
-			textArea.append("\nIndexing a doc:\n  " + file.getName());
-			indexDocs(file);
-			Date end = new Date();
-			textArea.append("\n" + (end.getTime() - start.getTime())
-					+ " total milliseconds");
-		} catch (IOException e) {
-			textArea.append("\n caught a " + e.getClass()
-					+ "\n with message: " + e.getMessage());
-		}
+		textArea.append("\nIndexing a doc:\n  " + file.getName());
+		queueIndex(file);
+		Date end = new Date();
+		textArea.append("\n" + (end.getTime() - start.getTime())
+				+ " total milliseconds");
+		DefaultCaret caret = (DefaultCaret) textArea.getCaret();
+		caret.setUpdatePolicy(DefaultCaret.ALWAYS_UPDATE);
 	}
-	
-	static void indexDocs(File file) throws IOException {
-	
+	static void queueIndex(File dir){
 		// do not try to index files that cannot be read
-		if (file.canRead()) {
-			if (file.isDirectory()) {
-				String[] files = file.list();
+		if (dir.canRead()) {
+			if (dir.isDirectory()) {
+				String[] files = dir.list();
 				// an IO error could occur
 				if (files != null) {
 					for (int i = 0; i < files.length; i++) {
-						File targetFile = new File(file, files[i]);
-						indexDocs(targetFile);
-						if(i==files.length){	//When File Adding Finished, remember to commit it
-							try {
-								ServerUtil.commit();
-							} catch (SolrServerException e) {
-								errorReport(targetFile.getAbsolutePath().replace('\\', '/'),e);
-							}
+						File targetFile = new File(dir, files[i]);
+						theFiles.add(targetFile);//Add to Queue
+						//indexDocs(targetFile);
+						if(i==files.length-1){	//When File Adding Finished, remember to commit it
+							startParallexIndexing();
 						}
 					}
 				}
-				
-			} else if (file.getName().endsWith(".txt")) {
-				fileCount++;   //count of files
-				textArea.append("\n[" + fileCount + "] " + file.getName());
-				try {
-					processTXT(file);
-				} catch (SolrServerException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-			
-			
 			}
-			/* //processing .pdf file
-			else if (file.getName().endsWith(".pdf")) {
-				fileCount++;   //count of files
-				textArea.append("\n[" + fileCount + "] " + file.getName());
-				
-				
-				try {
-					processPDF(file);
-				} catch (SolrServerException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-				
-			}*/
-			else if(file.getName().endsWith(".htm")||FilenameUtils.getExtension(file.getName()).equals("html")){
-				fileCount++;
-				textArea.append("\n["+fileCount+"] "+ file.getName());
-				DefaultCaret caret = (DefaultCaret) textArea.getCaret();
-				caret.setUpdatePolicy(DefaultCaret.ALWAYS_UPDATE);
-				try{
-					processHTML(file);
-					
-				}catch(SolrServerException e){
-					e.printStackTrace();
-				}
-			}
-			
 		}
+	}
+	static void startParallexIndexing(){
+		Executor executor = Executors.newFixedThreadPool(2);
+		executor.execute(new Runnable(){
+
+			@Override
+			public void run() {
+				File file;
+				while((file = theFiles.poll()) != null){
+					indexDocs(file);
+				}				
+			}
+			
+		});
+		executor.execute(new Runnable(){
+
+			@Override
+			public void run() {
+				File file;
+				while((file = theFiles.poll()) != null){
+					indexDocs(file);
+				}				
+			}
+			
+		});
 		
 	}
-	static void processTXT(File file)throws IOException, SolrServerException{
+	static void indexDocs(File file){
+		if (file.getName().endsWith(".txt")) {
+				fileCount++;   //count of files
+				textArea.append("\n[" + fileCount + "] " + file.getName());
+				processTXT(file);
+			
+			
+			}
+		else if(file.getName().endsWith(".htm")||FilenameUtils.getExtension(file.getName()).equals("html")){
+				fileCount++;
+				textArea.append("\n["+fileCount+"] "+ file.getName());
+				processHTML(file);
+		}
+		DefaultCaret caret = (DefaultCaret) textArea.getCaret();
+		caret.setUpdatePolicy(DefaultCaret.ALWAYS_UPDATE);
+	}
+	
+	static void processTXT(File file){
 		// makes a solr document
 		SolrInputDocument solrdoc = new SolrInputDocument();
 		String fileID = file.getAbsolutePath().replace('\\', '/');
@@ -129,7 +126,7 @@ public class DocIndexing {
 				
 		solrdoc.addField("text", getFileTxt(file));
 		
-		// commit to solr server
+		// Added to Server and wait for commit
 		try {
 			ServerUtil.addDocument(solrdoc);
 		} catch (Exception e) {
@@ -137,7 +134,7 @@ public class DocIndexing {
 		}
 		
 	}
-	static void processHTML(File file)throws IOException, SolrServerException{
+	static void processHTML(File file){
 		// makes a solr document
 		SolrInputDocument solrdoc = new SolrInputDocument();
 		String fileID = file.getAbsolutePath().replace('\\', '/');
@@ -146,7 +143,7 @@ public class DocIndexing {
 //		System.out.println("*** id:" + fileID);
 				
 		solrdoc.addField("text", getFileTxt(file));
-		// commit to solr server
+		//  Added to Server and wait for commitr
 		try {
 			ServerUtil.addDocument(solrdoc);
 		} catch (Exception e) {
@@ -204,5 +201,17 @@ public class DocIndexing {
 			e1.printStackTrace();
 		}
 	}
-
+	/** The thread can be designed to process multiple types of input doc,
+	 *   e.g., a single doc, multiple doc names separated by ",", or a folder name.
+	 */
+	class IndexerThread extends Thread {
+		public void run() {
+			File file;
+			while((file = theFiles.poll()) != null){
+				indexDocs(file);
+			}
+		}
+	}
 }
+
+
