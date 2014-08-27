@@ -67,7 +67,7 @@ public class DocIndexing {
 					for (int i = 0; i < files.length; i++) {
 						File targetFile = new File(file, files[i]);
 						indexDocs(targetFile);
-						if(i==files.length){	//When File reach final point, remember to commit it
+						if(i==files.length){	//When File Adding Finished, remember to commit it
 							try {
 								ServerUtil.commit();
 							} catch (SolrServerException e) {
@@ -87,23 +87,27 @@ public class DocIndexing {
 					e.printStackTrace();
 				}
 			
-			//processing .pdf file
-			} else if (file.getName().endsWith(".pdf")) {
+			
+			}
+			/* //processing .pdf file
+			else if (file.getName().endsWith(".pdf")) {
 				fileCount++;   //count of files
 				textArea.append("\n[" + fileCount + "] " + file.getName());
 				
-				/*
+				
 				try {
 					processPDF(file);
 				} catch (SolrServerException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
-				*/
-			}
+				
+			}*/
 			else if(file.getName().endsWith(".htm")||FilenameUtils.getExtension(file.getName()).equals("html")){
 				fileCount++;
 				textArea.append("\n["+fileCount+"] "+ file.getName());
+				DefaultCaret caret = (DefaultCaret) textArea.getCaret();
+				caret.setUpdatePolicy(DefaultCaret.ALWAYS_UPDATE);
 				try{
 					processHTML(file);
 					
@@ -111,9 +115,9 @@ public class DocIndexing {
 					e.printStackTrace();
 				}
 			}
+			
 		}
-		DefaultCaret caret = (DefaultCaret) textArea.getCaret();
-		caret.setUpdatePolicy(DefaultCaret.ALWAYS_UPDATE);
+		
 	}
 	static void processTXT(File file)throws IOException, SolrServerException{
 		// makes a solr document
