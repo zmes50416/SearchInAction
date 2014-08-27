@@ -111,32 +111,22 @@ public class IndexingPanel extends JPanel {
 			public void actionPerformed(ActionEvent e) {
 				// Make sure the last line is always visible
 				textArea.setCaretPosition(textArea.getDocument().getLength());
-				
+				DocIndexing indexer = new DocIndexing();
 				if(docNames.getText().equals("")){
 					JOptionPane.showMessageDialog(null, "Invalid doc name! Try again!!");
 				}else{
-					IndexerThread it = new IndexerThread();
-					it.start();
+					if(docNames.getText().trim().contains(",")){
+						for(String docName : docNames.getText().trim().split(",")){
+							indexer.preProcess(docName,textArea);
+						}
+					}else{
+							indexer.preProcess(docNames.getText().trim(),textArea);
+					}
 				}
 			}
 		};
 		btIndexing.addActionListener(indexDocListener);
 		
-	}
-	
-	/** The thread can be designed to process multiple types of input doc,
-	 *   e.g., a single doc, multiple doc names separated by ",", or a folder name.
-	 */
-	class IndexerThread extends Thread {
-		public void run() {
-			if(docNames.getText().trim().contains(",")){
-				for(String docName : docNames.getText().trim().split(",")){
-					DocIndexing.preProcess(docName,textArea);
-				}
-			}else{
-				DocIndexing.preProcess(docNames.getText().trim(),textArea);
-			}
-		}
 	}
 	
 	public HashSet<String> getCodebaseProj(){

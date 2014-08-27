@@ -5,6 +5,8 @@ import java.io.*;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Stack;
+import java.util.concurrent.*;
+
 import javax.swing.JTextArea;
 import javax.swing.text.DefaultCaret;
 import org.apache.commons.io.FilenameUtils;
@@ -19,13 +21,21 @@ import tw.edu.ncu.sia.util.ServerUtil;
 
 /** Index all text files under a directory. */
 public class DocIndexing {
-	public static JTextArea textArea = null;
-	private static long fileCount = 0;
-	public static Stack<SolrInputDocument> errorDocs = new Stack<SolrInputDocument>();
-	public static int timesOfError=0;
-	
+	JTextArea textArea = null;
+	private long fileCount;
+	public Stack<SolrInputDocument> errorDocs;
+	public int timesOfError;
+	public ConcurrentLinkedQueue<File> theFiles;
+	public static final int MAX_THREAD_NUM = 3;
+	private Date start;
+	public DocIndexing(){
+		errorDocs = new Stack<SolrInputDocument>();
+		fileCount = 0;
+		timesOfError = 0;
+		theFiles =new ConcurrentLinkedQueue<File>();
+	}
 	/** Index all text files under a directory. */
-	public static void preProcess(String docName, JTextArea ta){
+	public void preProcess(String docName, JTextArea ta){
 		ServerUtil.testServerConnected();
 		fileCount = 0;
 		textArea = ta;
@@ -43,85 +53,54 @@ public class DocIndexing {
 			return;
 		}
 
-		Date start = new Date();
-		try {
-			textArea.append("\nIndexing a doc:\n  " + file.getName());
-			indexDocs(file);
-			Date end = new Date();
-			textArea.append("\n" + (end.getTime() - start.getTime())
-					+ " total milliseconds");
-			textArea.append("\n Total Error number:"+timesOfError+"\n Please check ErrorReport.xt");
-
-		} catch (IOException e) {
-			textArea.append("\n caught a " + e.getClass()
-					+ "\n with message: " + e.getMessage());
-		}
+		start = new Date();
+		textArea.append("\nIndexing a doc:\n  " + file.getName());
+		queueIndex(file);
+		
 	}
-	
-	static void indexDocs(File file) throws IOException {
-	
+	void queueIndex(File dir){
 		// do not try to index files that cannot be read
-		if (file.canRead()) {
-			if (file.isDirectory()) {
-				String[] files = file.list();
+		if (dir.canRead()) {
+			if (dir.isDirectory()) {
+				String[] files = dir.list();
 				// an IO error could occur
 				if (files != null) {
 					for (int i = 0; i < files.length; i++) {
-						File targetFile = new File(file, files[i]);
-						indexDocs(targetFile);
-						if(i==files.length){	//When File Adding Finished, remember to commit it
-							try {
-								ServerUtil.commit();
-							} catch (SolrServerException e) {
-								errorReport(targetFile.getAbsolutePath().replace('\\', '/'),e);
-							}
+						File targetFile = new File(dir, files[i]);
+						theFiles.add(targetFile);//Add to Queue
+						//indexDocs(targetFile);
+						if(i==files.length-1){	//When File Adding Finished, remember to commit it
+							startParallexIndexing();
 						}
 					}
 				}
-				
-			} else if (file.getName().endsWith(".txt")) {
+			}
+		}
+	}
+	void startParallexIndexing(){
+		Executor executor = Executors.newFixedThreadPool(MAX_THREAD_NUM);
+		
+		for(int i=0;i<MAX_THREAD_NUM;i++){ //don't change i initialize value or it won't show time
+			executor.execute(new IndexerThread(i));
+		}
+	}
+	
+	void indexDocs(File file){
+		if (file.getName().endsWith(".txt")) {
 				fileCount++;   //count of files
 				textArea.append("\n[" + fileCount + "] " + file.getName());
-				try {
-					processTXT(file);
-				} catch (SolrServerException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
+				processTXT(file);
 			
 			
 			}
-			/* //processing .pdf file
-			else if (file.getName().endsWith(".pdf")) {
-				fileCount++;   //count of files
-				textArea.append("\n[" + fileCount + "] " + file.getName());
-				
-				
-				try {
-					processPDF(file);
-				} catch (SolrServerException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-				
-			}*/
-			else if(file.getName().endsWith(".htm")||FilenameUtils.getExtension(file.getName()).equals("html")){
+		else if(file.getName().endsWith(".htm")||FilenameUtils.getExtension(file.getName()).equals("html")){
 				fileCount++;
 				textArea.append("\n["+fileCount+"] "+ file.getName());
-				DefaultCaret caret = (DefaultCaret) textArea.getCaret();
-				caret.setUpdatePolicy(DefaultCaret.ALWAYS_UPDATE);
-				try{
-					processHTML(file);
-					
-				}catch(SolrServerException e){
-					e.printStackTrace();
-				}
-			}
-			
+				processHTML(file);
 		}
-		
 	}
-	static void processTXT(File file)throws IOException, SolrServerException{
+	
+	void processTXT(File file){
 		// makes a solr document
 		SolrInputDocument solrdoc = new SolrInputDocument();
 		String fileID = file.getAbsolutePath().replace('\\', '/');
@@ -131,7 +110,7 @@ public class DocIndexing {
 				
 		solrdoc.addField("text", getFileTxt(file));
 		
-		// commit to solr server
+		// Added to Server and wait for commit
 		try {
 			ServerUtil.addDocument(solrdoc);
 		} catch (Exception e) {
@@ -139,7 +118,7 @@ public class DocIndexing {
 		}
 		
 	}
-	static void processHTML(File file)throws IOException, SolrServerException{
+	void processHTML(File file){
 		// makes a solr document
 		SolrInputDocument solrdoc = new SolrInputDocument();
 		String fileID = file.getAbsolutePath().replace('\\', '/');
@@ -148,7 +127,7 @@ public class DocIndexing {
 //		System.out.println("*** id:" + fileID);
 				
 		solrdoc.addField("text", getFileTxt(file));
-		// commit to solr server
+		//  Added to Server and wait for commitr
 		try {
 			ServerUtil.addDocument(solrdoc);
 		} catch (Exception e) {
@@ -176,7 +155,7 @@ public class DocIndexing {
 
 	}
 	
-	static void processPDF(File file) throws IOException, SolrServerException{
+	void processPDF(File file) throws IOException, SolrServerException{
 		  SolrServer server = new CommonsHttpSolrServer(Config.hosturl);
 
 		  ContentStreamUpdateRequest up = new ContentStreamUpdateRequest("/update/extract");
@@ -191,7 +170,7 @@ public class DocIndexing {
 		  server.request(up);
 	}
 	
-	private static void errorReport(String id,Exception e){
+	private void errorReport(String id,Exception e){
 		try {
 			String dirName = FilenameUtils.getPath(id).replaceAll("/", "");
 			FileWriter eStream = new FileWriter(dirName+"ErrorReport.txt",true);
@@ -206,5 +185,33 @@ public class DocIndexing {
 			e1.printStackTrace();
 		}
 	}
-
+	/** The thread can be designed to process multiple types of input doc,
+	 *   e.g., a single doc, multiple doc names separated by ",", or a folder name.
+	 */
+	class IndexerThread extends Thread {
+		private int id;
+		IndexerThread(int id){
+			this.id = id;
+		}
+		@Override
+		public void run() {
+			File file;
+			while((file = theFiles.poll()) != null){
+				indexDocs(file);
+			}
+			try {
+				ServerUtil.commit();
+			} catch (Exception e) {
+				e.printStackTrace();
+				errorReport("commit error",e);
+			}
+			if(id == 0){//Only one Thread need to report the Error condition
+				long timeSpended = TimeUnit.MILLISECONDS.toSeconds(new Date().getTime() - start.getTime());
+				textArea.append("\n" + timeSpended + " total milliseconds");
+				textArea.append("\n Total Error number:"+timesOfError);
+			}
+		}
+	}
 }
+
+
