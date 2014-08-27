@@ -26,6 +26,7 @@ public class DocIndexing {
 	public static Stack<SolrInputDocument> errorDocs = new Stack<SolrInputDocument>();
 	public static int timesOfError=0;
 	public static ConcurrentLinkedQueue<File> theFiles = new ConcurrentLinkedQueue<File>();
+	private static Date start;
 	/** Index all text files under a directory. */
 	public static void preProcess(String docName, JTextArea ta){
 		ServerUtil.testServerConnected();
@@ -45,14 +46,10 @@ public class DocIndexing {
 			return;
 		}
 
-		Date start = new Date();
+		start = new Date();
 		textArea.append("\nIndexing a doc:\n  " + file.getName());
 		queueIndex(file);
-		Date end = new Date();
-		textArea.append("\n" + (end.getTime() - start.getTime())
-				+ " total milliseconds");
-		DefaultCaret caret = (DefaultCaret) textArea.getCaret();
-		caret.setUpdatePolicy(DefaultCaret.ALWAYS_UPDATE);
+		
 	}
 	static void queueIndex(File dir){
 		// do not try to index files that cannot be read
@@ -82,7 +79,19 @@ public class DocIndexing {
 				File file;
 				while((file = theFiles.poll()) != null){
 					indexDocs(file);
-				}				
+				}
+				try {
+					ServerUtil.commit();
+				} catch (SolrServerException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				Date end = new Date();
+				textArea.append("\n" + (end.getTime() - start.getTime())+ " total milliseconds");
+				textArea.append("\n Total Error number:"+DocIndexing.timesOfError);
 			}
 			
 		});
@@ -93,7 +102,16 @@ public class DocIndexing {
 				File file;
 				while((file = theFiles.poll()) != null){
 					indexDocs(file);
-				}				
+				}
+				try {
+					ServerUtil.commit();
+				} catch (SolrServerException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
 			}
 			
 		});
@@ -112,8 +130,6 @@ public class DocIndexing {
 				textArea.append("\n["+fileCount+"] "+ file.getName());
 				processHTML(file);
 		}
-		DefaultCaret caret = (DefaultCaret) textArea.getCaret();
-		caret.setUpdatePolicy(DefaultCaret.ALWAYS_UPDATE);
 	}
 	
 	static void processTXT(File file){

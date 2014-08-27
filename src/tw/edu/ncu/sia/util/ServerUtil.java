@@ -27,7 +27,7 @@ import org.apache.solr.client.solrj.response.TermsResponse.Term;
  */
 public class ServerUtil {
 	
-	private static final int BATCHSIZE = 50000;//how many docs Added before Commit, higher will increase speed but dont know the side effect yet
+	private static final int BATCHSIZE = 20000;//how many docs Added before Commit, higher should increase speed but haven't know the side effect yet
 	private static int docsize = 0;
 	private static CommonsHttpSolrServer server=null; // Singleton Design pattern only access it by getServer() to ensure connection
 	private static ServerUtil serverUtil= new ServerUtil();
@@ -64,6 +64,7 @@ public class ServerUtil {
 		server.setMaxRetries(1); // defaults to 0. > 1 not recommended.
 		return true;
 	}
+	// If using batch adding method, Remember to call commit last time
 	public static void commit() throws SolrServerException, IOException{
 		getServer().commit();
 	}
