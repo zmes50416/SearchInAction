@@ -21,14 +21,21 @@ import tw.edu.ncu.sia.util.ServerUtil;
 
 /** Index all text files under a directory. */
 public class DocIndexing {
-	public static JTextArea textArea = null;
-	private static long fileCount = 0;
-	public static Stack<SolrInputDocument> errorDocs = new Stack<SolrInputDocument>();
-	public static int timesOfError=0;
-	public static ConcurrentLinkedQueue<File> theFiles = new ConcurrentLinkedQueue<File>();
-	private static Date start;
+	JTextArea textArea = null;
+	private long fileCount;
+	public Stack<SolrInputDocument> errorDocs;
+	public int timesOfError;
+	public ConcurrentLinkedQueue<File> theFiles;
+	public static final int MAX_THREAD_NUM = 3;
+	private Date start;
+	public DocIndexing(){
+		errorDocs = new Stack<SolrInputDocument>();
+		fileCount = 0;
+		timesOfError = 0;
+		theFiles =new ConcurrentLinkedQueue<File>();
+	}
 	/** Index all text files under a directory. */
-	public static void preProcess(String docName, JTextArea ta){
+	public void preProcess(String docName, JTextArea ta){
 		ServerUtil.testServerConnected();
 		fileCount = 0;
 		textArea = ta;
@@ -51,7 +58,7 @@ public class DocIndexing {
 		queueIndex(file);
 		
 	}
-	static void queueIndex(File dir){
+	void queueIndex(File dir){
 		// do not try to index files that cannot be read
 		if (dir.canRead()) {
 			if (dir.isDirectory()) {
@@ -70,54 +77,15 @@ public class DocIndexing {
 			}
 		}
 	}
-	static void startParallexIndexing(){
-		Executor executor = Executors.newFixedThreadPool(2);
-		executor.execute(new Runnable(){
-
-			@Override
-			public void run() {
-				File file;
-				while((file = theFiles.poll()) != null){
-					indexDocs(file);
-				}
-				try {
-					ServerUtil.commit();
-				} catch (SolrServerException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				} catch (IOException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-				Date end = new Date();
-				textArea.append("\n" + (end.getTime() - start.getTime())+ " total milliseconds");
-				textArea.append("\n Total Error number:"+DocIndexing.timesOfError);
-			}
-			
-		});
-		executor.execute(new Runnable(){
-
-			@Override
-			public void run() {
-				File file;
-				while((file = theFiles.poll()) != null){
-					indexDocs(file);
-				}
-				try {
-					ServerUtil.commit();
-				} catch (SolrServerException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				} catch (IOException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-			}
-			
-		});
+	void startParallexIndexing(){
+		Executor executor = Executors.newFixedThreadPool(MAX_THREAD_NUM);
 		
+		for(int i=0;i<MAX_THREAD_NUM;i++){ //don't change i initialize value or it won't show time
+			executor.execute(new IndexerThread(i));
+		}
 	}
-	static void indexDocs(File file){
+	
+	void indexDocs(File file){
 		if (file.getName().endsWith(".txt")) {
 				fileCount++;   //count of files
 				textArea.append("\n[" + fileCount + "] " + file.getName());
@@ -132,7 +100,7 @@ public class DocIndexing {
 		}
 	}
 	
-	static void processTXT(File file){
+	void processTXT(File file){
 		// makes a solr document
 		SolrInputDocument solrdoc = new SolrInputDocument();
 		String fileID = file.getAbsolutePath().replace('\\', '/');
@@ -150,7 +118,7 @@ public class DocIndexing {
 		}
 		
 	}
-	static void processHTML(File file){
+	void processHTML(File file){
 		// makes a solr document
 		SolrInputDocument solrdoc = new SolrInputDocument();
 		String fileID = file.getAbsolutePath().replace('\\', '/');
@@ -187,7 +155,7 @@ public class DocIndexing {
 
 	}
 	
-	static void processPDF(File file) throws IOException, SolrServerException{
+	void processPDF(File file) throws IOException, SolrServerException{
 		  SolrServer server = new CommonsHttpSolrServer(Config.hosturl);
 
 		  ContentStreamUpdateRequest up = new ContentStreamUpdateRequest("/update/extract");
@@ -202,7 +170,7 @@ public class DocIndexing {
 		  server.request(up);
 	}
 	
-	private static void errorReport(String id,Exception e){
+	private void errorReport(String id,Exception e){
 		try {
 			String dirName = FilenameUtils.getPath(id).replaceAll("/", "");
 			FileWriter eStream = new FileWriter(dirName+"ErrorReport.txt",true);
@@ -221,10 +189,26 @@ public class DocIndexing {
 	 *   e.g., a single doc, multiple doc names separated by ",", or a folder name.
 	 */
 	class IndexerThread extends Thread {
+		private int id;
+		IndexerThread(int id){
+			this.id = id;
+		}
+		@Override
 		public void run() {
 			File file;
 			while((file = theFiles.poll()) != null){
 				indexDocs(file);
+			}
+			try {
+				ServerUtil.commit();
+			} catch (Exception e) {
+				e.printStackTrace();
+				errorReport("commit error",e);
+			}
+			if(id == 0){//Only one Thread need to report the Error condition
+				long timeSpended = TimeUnit.MILLISECONDS.toSeconds(new Date().getTime() - start.getTime());
+				textArea.append("\n" + timeSpended + " total milliseconds");
+				textArea.append("\n Total Error number:"+timesOfError);
 			}
 		}
 	}

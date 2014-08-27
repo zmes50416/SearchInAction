@@ -111,16 +111,16 @@ public class IndexingPanel extends JPanel {
 			public void actionPerformed(ActionEvent e) {
 				// Make sure the last line is always visible
 				textArea.setCaretPosition(textArea.getDocument().getLength());
-				
+				DocIndexing indexer = new DocIndexing();
 				if(docNames.getText().equals("")){
 					JOptionPane.showMessageDialog(null, "Invalid doc name! Try again!!");
 				}else{
 					if(docNames.getText().trim().contains(",")){
 						for(String docName : docNames.getText().trim().split(",")){
-							DocIndexing.preProcess(docName,textArea);
+							indexer.preProcess(docName,textArea);
 						}
 					}else{
-						DocIndexing.preProcess(docNames.getText().trim(),textArea);
+							indexer.preProcess(docNames.getText().trim(),textArea);
 					}
 				}
 			}
