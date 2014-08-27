@@ -35,7 +35,7 @@ public class IndexingPanel extends JPanel {
 	private JTextArea textArea= new JTextArea();
 	private JTextField docNames = new JTextField(20);
 	private JRadioButton rb1 = new JRadioButton("EN", true);
-	private JRadioButton rb2 = new JRadioButton("zhTW");
+	private JRadioButton rb2 = new JRadioButton("zhTW"); 
 	
 	public void init(){
 		this.setLayout(new BorderLayout());
@@ -89,12 +89,14 @@ public class IndexingPanel extends JPanel {
 		bg.add(rb1);
 		bg.add(rb2);
 		JButton btIndexing = new JButton("Index");
+		JButton btIndexingAll = new JButton("Index All");
 		//panel5.add(lblIcon3);
 		//panel5.add(lbMsg3);
 		panel5.add(rb1);
 		panel5.add(rb2);
 		panel5.add(docNames);
 		panel5.add(btIndexing);
+		panel5.add(btIndexingAll);
 		ctlPanel.add(panel5);
 		
 		//Show docs in docfolder
@@ -111,22 +113,37 @@ public class IndexingPanel extends JPanel {
 			public void actionPerformed(ActionEvent e) {
 				// Make sure the last line is always visible
 				textArea.setCaretPosition(textArea.getDocument().getLength());
-				DocIndexing indexer = new DocIndexing();
 				if(docNames.getText().equals("")){
 					JOptionPane.showMessageDialog(null, "Invalid doc name! Try again!!");
 				}else{
 					if(docNames.getText().trim().contains(",")){
 						for(String docName : docNames.getText().trim().split(",")){
-							indexer.preProcess(docName,textArea);
+							new DocIndexing().preProcess(docName,textArea);
 						}
 					}else{
-							indexer.preProcess(docNames.getText().trim(),textArea);
+							new DocIndexing().preProcess(docNames.getText().trim(),textArea);
 					}
 				}
 			}
 		};
 		btIndexing.addActionListener(indexDocListener);
-		
+		btIndexingAll.addActionListener(new ActionListener(){
+
+			@Override
+			public void actionPerformed(ActionEvent arg0) {
+				textArea.setCaretPosition(textArea.getDocument().getLength());
+				
+				File baseDir = new File(Config.docfolder);
+				if(baseDir !=null){
+					String[] files = baseDir.list();
+					for(String dirName:files){
+						new DocIndexing().preProcess(dirName,textArea);
+					}
+				}
+				
+			}
+			
+		});
 	}
 	
 	public HashSet<String> getCodebaseProj(){

@@ -28,11 +28,13 @@ public class DocIndexing {
 	public ConcurrentLinkedQueue<File> theFiles;
 	public static final int MAX_THREAD_NUM = 3;
 	private Date start;
+	private boolean workIsDone; 
 	public DocIndexing(){
 		errorDocs = new Stack<SolrInputDocument>();
 		fileCount = 0;
 		timesOfError = 0;
 		theFiles =new ConcurrentLinkedQueue<File>();
+		workIsDone = false;
 	}
 	/** Index all text files under a directory. */
 	public void preProcess(String docName, JTextArea ta){
@@ -55,29 +57,18 @@ public class DocIndexing {
 
 		start = new Date();
 		textArea.append("\nIndexing a doc:\n  " + file.getName());
-		queueIndex(file);
-		
+		startqueueIndex(file);
+		startParallexIndexing();
 	}
-    //bottleNeck!! It need a lot of time to queue thouthands of file
-	void queueIndex(File dir){
-		// do not try to index files that cannot be read
-		if (dir.canRead()) {
-			if (dir.isDirectory()) {
-				String[] files = dir.list();
-				// an IO error could occur
-				if (files != null) {
-					for (int i = 0; i < files.length; i++) {
-						File targetFile = new File(dir, files[i]);
-						theFiles.add(targetFile);//Add to Queue
-						//indexDocs(targetFile);
-						if(i==files.length-1){	//When File Adding Finished, remember to commit it
-							startParallexIndexing();
-						}
-					}
-				}
-			}
+	void startqueueIndex(File file){
+		try {
+			new QueueIndexer(file).start();
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
 		}
 	}
+	
 	void startParallexIndexing(){
 		//Executor executor = Executors.newFixedThreadPool(MAX_THREAD_NUM);
 		
@@ -90,16 +81,14 @@ public class DocIndexing {
 	void indexDocs(File file){
 		if (file.getName().endsWith(".txt")) {
 				fileCount++;   //count of files
-				textArea.append("\n[" + fileCount + "] " + file.getName());
-				processTXT(file);
-			
-			
+				processTXT(file);			
 			}
 		else if(file.getName().endsWith(".htm")||FilenameUtils.getExtension(file.getName()).equals("html")){
 				fileCount++;
-				textArea.append("\n["+fileCount+"] "+ file.getName());
 				processHTML(file);
 		}
+		textArea.append("\n["+fileCount+"] "+ file.getName());
+		
 	}
 	
 	void processTXT(File file){
@@ -126,7 +115,6 @@ public class DocIndexing {
 		String fileID = file.getAbsolutePath().replace('\\', '/');
 		fileID = fileID.substring(fileID.indexOf("docfolder")+9);
 		solrdoc.addField("id", fileID);
-//		System.out.println("*** id:" + fileID);
 				
 		solrdoc.addField("text", getFileTxt(file));
 		//  Added to Server and wait for commitr
@@ -187,6 +175,33 @@ public class DocIndexing {
 			e1.printStackTrace();
 		}
 	}
+	//bottleNeck!! It need a lot of time to queue thouthands of file
+	//TODO maybe use Proudcer & Consumer Design Pattern?
+	class QueueIndexer extends Thread{
+		// do not try to index files that cannot be read
+		File dir;
+		QueueIndexer(File dir)throws Exception{
+			this.dir = dir;
+		}
+		@Override
+		public void run(){
+			if (dir.canRead()) {
+				if (dir.isDirectory()) {
+					String[] files = dir.list();
+					// an IO error could occur
+					if (files != null) {
+						for (int i = 0; i < files.length; i++) {
+							File targetFile = new File(dir, files[i]);
+							theFiles.add(targetFile);//Add to Queue
+						}
+					}
+				}
+			}
+			workIsDone = true;
+		}
+		
+		
+	}
 	/** The thread can be designed to process multiple types of input doc,
 	 *   e.g., a single doc, multiple doc names separated by ",", or a folder name.
 	 */
@@ -198,10 +213,16 @@ public class DocIndexing {
 		@Override
 		public void run() {
 			File file;
-			while((file = theFiles.poll()) != null){
-				indexDocs(file);
+			while(true){
+				if((file = theFiles.poll()) != null)
+					indexDocs(file);
+				else if(workIsDone){
+					break;
+				}
+				else{
+					yield();
+				}
 			}
-			
 			if(id == 0){//Only one Thread need to report the Error condition
 				try {
 					ServerUtil.commit();
