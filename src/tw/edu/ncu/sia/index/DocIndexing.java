@@ -223,6 +223,7 @@ public class DocIndexing {
 					yield();
 				}
 			}
+			
 			if(id == 0){//Only one Thread need to report the Error condition
 				try {
 					ServerUtil.commit();
