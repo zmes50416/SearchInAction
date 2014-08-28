@@ -27,12 +27,12 @@ import org.apache.solr.client.solrj.response.TermsResponse.Term;
  */
 public class ServerUtil {
 	
-	private static int BATCHSIZE = Integer.getInteger(Config.pref.getProperty("BatchSize"));//how many docs Added before Commit, higher should increase speed but haven't know the side effect yet
+	private static int BATCHSIZE = Integer.parseInt(Config.pref.getProperty("BatchSize"));//how many docs Added before Commit, higher should increase speed but haven't know the side effect yet
 	private static int docsize = 0;
 	private static CommonsHttpSolrServer server=null; // Singleton Design pattern only access it by getServer() to ensure connection
 	private ServerUtil(){
 		if(BATCHSIZE==0){
-			BATCHSIZE = 10000;
+			BATCHSIZE = 50000;
 		}
 	}
 	public static CommonsHttpSolrServer getServer(){
