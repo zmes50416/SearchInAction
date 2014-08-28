@@ -58,6 +58,7 @@ public class DocIndexing {
 		queueIndex(file);
 		
 	}
+    //bottleNeck!! It need a lot of time to queue thouthands of file
 	void queueIndex(File dir){
 		// do not try to index files that cannot be read
 		if (dir.canRead()) {
@@ -78,10 +79,11 @@ public class DocIndexing {
 		}
 	}
 	void startParallexIndexing(){
-		Executor executor = Executors.newFixedThreadPool(MAX_THREAD_NUM);
+		//Executor executor = Executors.newFixedThreadPool(MAX_THREAD_NUM);
 		
 		for(int i=0;i<MAX_THREAD_NUM;i++){ //don't change i initialize value or it won't show time
-			executor.execute(new IndexerThread(i));
+			//executor.execute(new IndexerThread(i));
+			new IndexerThread(i).start();
 		}
 	}
 	
@@ -199,15 +201,16 @@ public class DocIndexing {
 			while((file = theFiles.poll()) != null){
 				indexDocs(file);
 			}
-			try {
-				ServerUtil.commit();
-			} catch (Exception e) {
-				e.printStackTrace();
-				errorReport("commit error",e);
-			}
+			
 			if(id == 0){//Only one Thread need to report the Error condition
+				try {
+					ServerUtil.commit();
+				} catch (Exception e) {
+					e.printStackTrace();
+					errorReport("commit/commit error",e);
+				}
 				long timeSpended = TimeUnit.MILLISECONDS.toSeconds(new Date().getTime() - start.getTime());
-				textArea.append("\n" + timeSpended + " total milliseconds");
+				textArea.append("\n" + timeSpended + " total seconds");
 				textArea.append("\n Total Error number:"+timesOfError);
 			}
 		}

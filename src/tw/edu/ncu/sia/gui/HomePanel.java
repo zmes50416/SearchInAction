@@ -54,6 +54,6 @@ public class HomePanel extends JPanel {
 		textArea.append("\n#host_url: " + Config.hosturl);
 		textArea.append("\n#software_title: " + Config.title);
 		textArea.append("\n#software_version: " + Config.version);
-		
+		textArea.append("\n#AddBatchSize:"+Config.pref.getProperty("BatchSize"));
 	}
 }
