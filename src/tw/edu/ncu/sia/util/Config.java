@@ -1,5 +1,6 @@
 package tw.edu.ncu.sia.util;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -7,6 +8,7 @@ import java.io.IOException;
 import java.util.InvalidPropertiesFormatException;
 import java.util.Properties;
 
+import javax.swing.JFileChooser;
 import javax.swing.JOptionPane;
 
 public class Config {
@@ -51,15 +53,23 @@ public class Config {
 	}
 	
 	public static void setDocFolder(){
-		String folder = JOptionPane.showInputDialog("DocFolder:"
-				+ "\n(e.g.," + docfolder + " )");
-		if(folder==null||folder.equals("")){
+		File docFolder = new File(pref.getProperty("docPath"));
+		JFileChooser projectChooser;
+		if(docFolder.isDirectory()){
+			projectChooser = new JFileChooser(docFolder);
+		}else{
+			projectChooser = new JFileChooser(new File("."));
+		}
+		projectChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+		if(!(projectChooser.showOpenDialog(null)==JFileChooser.APPROVE_OPTION)){
 			JOptionPane.showMessageDialog(null, "Default Folder:\n" + docfolder);
 		}else{
+			String folder = projectChooser.getSelectedFile().getAbsolutePath();
 			saveSetting("docPath", folder);
 			docfolder = pref.getProperty("docPath");
 			JOptionPane.showMessageDialog(null, "Folder: " + docfolder);
 		}
+			
 	}
 	public static boolean saveSetting(String key, String value){
 		pref.setProperty(key, value);
@@ -75,4 +85,5 @@ public class Config {
 		}
 		return true;
 	}
+	
 }
