@@ -4,17 +4,20 @@ import java.io.IOException;
 import java.net.MalformedURLException;
 import java.util.HashSet;
 import java.util.List;
+
 import org.apache.solr.common.SolrDocument;
 import org.apache.solr.common.SolrDocumentList;
 import org.apache.solr.common.SolrInputDocument;
 import org.apache.solr.client.solrj.SolrQuery;
+import org.apache.solr.client.solrj.SolrServer;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.SolrQuery.ORDER;
-import org.apache.solr.client.solrj.impl.CommonsHttpSolrServer;
-import org.apache.solr.client.solrj.impl.StreamingUpdateSolrServer;
+import org.apache.solr.client.solrj.impl.ConcurrentUpdateSolrServer;
 import org.apache.solr.client.solrj.response.QueryResponse;
+import org.apache.solr.client.solrj.response.SolrPingResponse;
 import org.apache.solr.client.solrj.response.TermsResponse;
 import org.apache.solr.client.solrj.response.TermsResponse.Term;
+import org.apache.solr.client.solrj.response.UpdateResponse;
 
 /**
  * <p>access ServerConnection, can test or update server. should choose between Common or StreamUpdated ServerClass </p>
@@ -27,53 +30,41 @@ import org.apache.solr.client.solrj.response.TermsResponse.Term;
  */
 public class ServerUtil {
 	
-	private static int BATCHSIZE = Integer.parseInt(Config.pref.getProperty("BatchSize"));//how many docs Added before Commit, higher should increase speed but haven't know the side effect yet
+	private static int BATCHSIZE = Integer.parseInt(Config.pref.getProperty("BatchSize","50000"));//how many docs Added before Commit, higher should increase speed but haven't know the side effect yet
 	private static int docsize = 0;
-	private static CommonsHttpSolrServer server=null; // Singleton Design pattern only access it by getServer() to ensure connection
-	private ServerUtil(){
-		if(BATCHSIZE==0){
-			BATCHSIZE = 50000;
-		}
-	}
-	public static CommonsHttpSolrServer getServer(){
+	private volatile static SolrServer server=null; // Singleton Design pattern only access it by getServer() to ensure connection
+	
+	public static SolrServer getServer(){
 		if(server==null){
-			try {
-				initialize();
-			} catch (Exception e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
+			synchronized(ServerUtil.class){
+				if(server==null){
+					initialize();
+				}
 			}
 		}
-			return server;
+		return server;
 			
 	}
 
 	private static Boolean initialize(){
 		String url = Config.hosturl;
-		try {
-			server = new StreamingUpdateSolrServer(url,200,10); // last two parameter will determined by Computer Power. Higher mean more speedy Index
-		} catch (MalformedURLException e) {
-			e.printStackTrace();
-			return false;
-		}
-		server.setSoTimeout(3000); // socket read timeout
-		server.setConnectionTimeout(3000);
-		server.setDefaultMaxConnectionsPerHost(100);
-		server.setMaxTotalConnections(100);
-		server.setFollowRedirects(false); // defaults to false
-		server.setAllowCompression(false);
-		server.setMaxRetries(1); // defaults to 0. > 1 not recommended.
+		ConcurrentUpdateSolrServer mServer = new ConcurrentUpdateSolrServer(url,200,10); // last two parameter will determined by Computer Power. Higher mean more speedy Index
+		mServer.setSoTimeout(3000); // socket read timeout
+		mServer.setConnectionTimeout(3000);
+		server = mServer;
 		return true;
 	}
 	// If using batch adding method, Remember to call commit last time
 	public static void commit() throws SolrServerException, IOException{
-		getServer().commit();
+		UpdateResponse commitRespond = getServer().commit(true, true);
+		if(commitRespond.getStatus()!=0){ //Dont trust status, it only show connection problem, see admin log to prevent Server side problem(ex:undifined field)
+			throw new SolrServerException("committing failed");
+		}
 	}
 	//Dont do commit on every document added, batch add then commit
 	public static void addDocument(SolrInputDocument doc) throws SolrServerException, IOException{
 	
-		
-		getServer().add(doc);
+		UpdateResponse respond = getServer().add(doc);
 		if(docsize++ >= BATCHSIZE){
 			commit();
 			docsize = 0;
@@ -233,9 +224,13 @@ public class ServerUtil {
 		}
 	}
 	public static boolean testServerConnected(){
-			if(server==null)
-				return ServerUtil.initialize();
-			else
+			try {
+				SolrPingResponse ping = getServer().ping();
+				System.out.println("Server connected, ping: "+ping.getQTime()+"ms");
 				return true;
+			} catch (SolrServerException | IOException e) {
+				e.printStackTrace();
+				return false;
+			}
 	}
 }

@@ -9,13 +9,15 @@ import java.util.concurrent.*;
 
 import javax.swing.JTextArea;
 import javax.swing.text.DefaultCaret;
+
 import org.apache.commons.io.FilenameUtils;
 import org.apache.solr.client.solrj.SolrServer;
 import org.apache.solr.client.solrj.SolrServerException;
-import org.apache.solr.client.solrj.impl.CommonsHttpSolrServer;
+import org.apache.solr.client.solrj.impl.HttpSolrServer;
 import org.apache.solr.client.solrj.request.ContentStreamUpdateRequest;
 import org.apache.solr.client.solrj.request.AbstractUpdateRequest;
 import org.apache.solr.common.SolrInputDocument;
+
 import tw.edu.ncu.sia.util.Config;
 import tw.edu.ncu.sia.util.ServerUtil;
 
@@ -129,12 +131,9 @@ public class DocIndexing {
 	}
 	
 	static  StringBuffer getFileTxt(File file) {
-		BufferedReader reader = null;
-		try {
-			reader = new BufferedReader(new FileReader(file));
+		try (BufferedReader reader = new BufferedReader(new FileReader(file));BufferedReader br = new BufferedReader(new FileReader(file))){
 			StringBuffer sourceStr = new StringBuffer();
 			String str = "";
-			BufferedReader br = new BufferedReader(new FileReader(file));
 			while((str = br.readLine()) != null)
 				sourceStr.append("\n").append(str);
 			reader.close();
@@ -146,10 +145,10 @@ public class DocIndexing {
 	}
 	
 	void processPDF(File file) throws IOException, SolrServerException{
-		  SolrServer server = new CommonsHttpSolrServer(Config.hosturl);
+		  SolrServer server = new HttpSolrServer(Config.hosturl);
 
 		  ContentStreamUpdateRequest up = new ContentStreamUpdateRequest("/update/extract");
-		  up.addFile(file);
+		  up.addFile(file,"application/pdf");
 		  String id = file.getName().substring(file.getName().lastIndexOf('/')+1);
 		  System.out.println(id);
 
