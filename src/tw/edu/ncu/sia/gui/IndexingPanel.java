@@ -6,6 +6,8 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
 import java.util.HashSet;
+import java.util.Observable;
+import java.util.Observer;
 
 import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
@@ -21,22 +23,23 @@ import javax.swing.JTextArea;
 import javax.swing.JTextField;
 
 import tw.edu.ncu.sia.index.DocIndexing;
+import tw.edu.ncu.sia.index.DocumentController;
 import tw.edu.ncu.sia.index.IndexStatus;
 import tw.edu.ncu.sia.util.Config;
 import tw.edu.ncu.sia.util.DocFolder;
 import tw.edu.ncu.sia.util.ServerUtil;
 
 
-public class IndexingPanel extends JPanel {
+public class IndexingPanel extends JPanel implements Observer{
 	
 	private static final long serialVersionUID = 1L;
 	private JPanel ctlPanel = new JPanel();
 	private JPanel bottomPanel = new JPanel();
-	private JTextArea textArea= new JTextArea();
+	private JTextArea textArea= new JTextArea(1,100);
 	private JTextField docNames = new JTextField(20);
 	private JRadioButton rb1 = new JRadioButton("EN", true);
 	private JRadioButton rb2 = new JRadioButton("zhTW"); 
-	
+	DocIndexing indexer = new DocIndexing();
 	public void init(){
 		this.setLayout(new BorderLayout());
 		this.add(ctlPanel, BorderLayout.NORTH);
@@ -48,7 +51,7 @@ public class IndexingPanel extends JPanel {
 		textArea.setLineWrap(true);
 		// Make sure the last line is always visible
 		textArea.setCaretPosition(textArea.getDocument().getLength());
-		
+		indexer.addObserver(this);
 		addCompoents();
 		//add a status bar
 		this.add(new StatusPanel(textArea), BorderLayout.SOUTH);
@@ -118,10 +121,22 @@ public class IndexingPanel extends JPanel {
 				}else{
 					if(docNames.getText().trim().contains(",")){
 						for(String docName : docNames.getText().trim().split(",")){
-							new DocIndexing().preProcess(docName,textArea);
+							File docDir = new File(Config.docfolder+"/"+docName);
+							if(docDir.exists()){
+								indexer.preProcess(docDir);
+							}else{
+								textArea.append(docDir.getAbsolutePath()
+										+ " does not exist");
+							}
 						}
 					}else{
-							new DocIndexing().preProcess(docNames.getText().trim(),textArea);
+						File docDir = new File(Config.docfolder+"/"+docNames);
+						if(docDir.exists()){
+							indexer.preProcess(docDir);
+						}else{
+							textArea.append(docDir.getAbsolutePath()
+									+ " does not exist");
+						}
 					}
 				}
 			}
@@ -135,9 +150,9 @@ public class IndexingPanel extends JPanel {
 				
 				File baseDir = new File(Config.docfolder);
 				if(baseDir !=null){
-					String[] files = baseDir.list();
-					for(String dirName:files){
-						new DocIndexing().preProcess(dirName,textArea);
+					File[] files = baseDir.listFiles();
+					for(File documentDir:files){
+						indexer.preProcess(documentDir);
 					}
 				}
 				
@@ -160,6 +175,12 @@ public class IndexingPanel extends JPanel {
 		    }
 		    return h;
 		}
+	}
+
+	@Override
+	public void update(Observable o, Object arg) {
+		String message = (String)arg;
+		this.textArea.append(message);		
 	}
 	
 
