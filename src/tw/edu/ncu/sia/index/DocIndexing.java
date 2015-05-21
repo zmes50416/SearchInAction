@@ -13,6 +13,7 @@ import java.util.concurrent.*;
 import javax.swing.JTextArea;
 import javax.swing.text.DefaultCaret;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.solr.client.solrj.SolrServer;
 import org.apache.solr.client.solrj.SolrServerException;
@@ -29,8 +30,8 @@ public class DocIndexing extends Observable{
 	public Stack<SolrInputDocument> errorDocs;
 	public Stack<File> fileToWork;
 	public int timesOfError;
-	public static final int MAX_THREAD_NUM = 100;
-	ExecutorService taskExecutor = Executors.newFixedThreadPool(3);
+	public static final int MAX_THREAD_NUM = 15;
+	public static ExecutorService taskExecutor = Executors.newFixedThreadPool(3);
 	public DocIndexing(){
 		errorDocs = new Stack<SolrInputDocument>();
 		timesOfError = 0;
@@ -67,34 +68,50 @@ public class DocIndexing extends Observable{
 	}
 	void processHTML(File file){
 		// makes a solr document
+		
 		SolrInputDocument solrdoc = new SolrInputDocument();
 		String fileID = file.getAbsolutePath().replace('\\', '/');
 		fileID = fileID.substring(fileID.indexOf("docfolder")+9);
 		solrdoc.addField("id", fileID);
-				
-		solrdoc.addField("text", getFileTxt(file));
+		try {
+			String content = FileUtils.readFileToString(file);
+			solrdoc.addField("text", content);
+		} catch (IOException e2) {
+			e2.printStackTrace();
+		}
 		//  Added to Server and wait for commitr
 		try {
 			ServerUtil.addDocument(solrdoc);
 		} catch (Exception e) {
-			timesOfError++;
-			errorDocs.add(solrdoc);
-			errorReport(fileID,e);
+			try{
+				timesOfError++;
+				errorDocs.add(solrdoc);
+				errorReport(fileID,e);
+				System.err.println("wait for one second");
+				synchronized(DocIndexing.taskExecutor){
+					taskExecutor.wait(1000);
+				} 
+			}catch (InterruptedException e1) {
+				e1.printStackTrace();
+			}
+			
+			
 		}
 		
 	}
 	
 	static  StringBuffer getFileTxt(File file) {
-		try (BufferedReader reader = new BufferedReader(new FileReader(file));BufferedReader br = new BufferedReader(new FileReader(file))){
+		try (BufferedReader br = new BufferedReader(new FileReader(file))){
 			StringBuffer sourceStr = new StringBuffer();
 			String str = "";
-			while((str = br.readLine()) != null)
+			while((str = br.readLine()) != null){
 				sourceStr.append("\n").append(str);
-			reader.close();
+			}
 			return sourceStr;
 		} catch (Exception e) {
 			return null;
 		}
+		
 
 	}
 	
@@ -126,6 +143,29 @@ public class DocIndexing extends Observable{
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+	}
+	/**
+	 * 方便再度重試失敗文件
+	 */
+	public void retryError(){
+		while(!errorDocs.isEmpty()){
+			SolrInputDocument retryDoc = errorDocs.pop();
+			try {
+				ServerUtil.addDocument(retryDoc);
+			} catch (SolrServerException | IOException e) {
+					try {
+						System.err.println("Sleep one second");
+						Thread.sleep(1000);
+						errorDocs.push(retryDoc);
+					} catch (InterruptedException e1) {
+						// TODO Auto-generated catch block
+						e1.printStackTrace();
+					}
+			}
+		}
+		this.setChanged();
+		this.notifyObservers("Retry finished");
+		
 	}
 	private class consumeTask implements Runnable{
 		DocIndexing indexer;

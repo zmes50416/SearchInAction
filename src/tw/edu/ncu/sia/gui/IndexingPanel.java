@@ -23,7 +23,6 @@ import javax.swing.JTextArea;
 import javax.swing.JTextField;
 
 import tw.edu.ncu.sia.index.DocIndexing;
-import tw.edu.ncu.sia.index.DocumentController;
 import tw.edu.ncu.sia.index.IndexStatus;
 import tw.edu.ncu.sia.util.Config;
 import tw.edu.ncu.sia.util.DocFolder;
@@ -93,6 +92,8 @@ public class IndexingPanel extends JPanel implements Observer{
 		bg.add(rb2);
 		JButton btIndexing = new JButton("Index");
 		JButton btIndexingAll = new JButton("Index All");
+		JButton retryButton = new JButton("Retry");
+
 		//panel5.add(lblIcon3);
 		//panel5.add(lbMsg3);
 		panel5.add(rb1);
@@ -100,8 +101,19 @@ public class IndexingPanel extends JPanel implements Observer{
 		panel5.add(docNames);
 		panel5.add(btIndexing);
 		panel5.add(btIndexingAll);
+		panel5.add(retryButton);
 		ctlPanel.add(panel5);
-		
+		retryButton.addActionListener(new ActionListener(){
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				
+				textArea.append(System.lineSeparator()+"Start Retry error documents");
+				indexer.retryError();
+				
+			}
+			
+		});
 		//Show docs in docfolder
 		ActionListener showDocFolderListener = new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
@@ -123,6 +135,7 @@ public class IndexingPanel extends JPanel implements Observer{
 						for(String docName : docNames.getText().trim().split(",")){
 							File docDir = new File(Config.docfolder+"/"+docName);
 							if(docDir.exists()){
+								textArea.append("Start indexing:"+docName+System.lineSeparator());
 								indexer.preProcess(docDir);
 							}else{
 								textArea.append(docDir.getAbsolutePath()
@@ -132,10 +145,10 @@ public class IndexingPanel extends JPanel implements Observer{
 					}else{
 						File docDir = new File(Config.docfolder+"/"+docNames);
 						if(docDir.exists()){
+							textArea.append("Start indexing:"+docNames+System.lineSeparator());
 							indexer.preProcess(docDir);
 						}else{
-							textArea.append(docDir.getAbsolutePath()
-									+ " does not exist");
+							textArea.append(docNames+ " does not exist");
 						}
 					}
 				}
@@ -180,7 +193,9 @@ public class IndexingPanel extends JPanel implements Observer{
 	@Override
 	public void update(Observable o, Object arg) {
 		String message = (String)arg;
-		this.textArea.append(message);		
+		this.textArea.append(System.lineSeparator());
+		this.textArea.append(message);	
+		this.textArea.append(System.lineSeparator());
 	}
 	
 
