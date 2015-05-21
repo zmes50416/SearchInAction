@@ -30,8 +30,8 @@ import org.apache.solr.client.solrj.response.UpdateResponse;
  */
 public class ServerUtil {
 	
-	private static int BATCHSIZE = Integer.parseInt(Config.pref.getProperty("BatchSize","50000"));//how many docs Added before Commit, higher should increase speed but haven't know the side effect yet
-	private static int docsize = 0;
+	private final static int BATCHSIZE = Integer.parseInt(Config.pref.getProperty("BatchSize","50000"));//how many docs Added before Commit, higher should increase speed but haven't know the side effect yet
+	private volatile static int docsize = 0;
 	private volatile static SolrServer server=null; // Singleton Design pattern only access it by getServer() to ensure connection
 	
 	public static SolrServer getServer(){
@@ -48,9 +48,9 @@ public class ServerUtil {
 
 	private static Boolean initialize(){
 		String url = Config.hosturl;
-		ConcurrentUpdateSolrServer mServer = new ConcurrentUpdateSolrServer(url,200,10); // last two parameter will determined by Computer Power. Higher mean more speedy Index
-		mServer.setSoTimeout(5000); // socket read timeout
-		mServer.setConnectionTimeout(3000);
+		ConcurrentUpdateSolrServer mServer = new ConcurrentUpdateSolrServer(url,2000,10); // last two parameter will determined by Computer Power. Higher mean more speedy Index
+		mServer.setSoTimeout(8000); // socket read timeout
+		mServer.setConnectionTimeout(8000);
 		server = mServer;
 		return true;
 	}

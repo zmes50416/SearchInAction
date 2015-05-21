@@ -1,32 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <classpath>
-	<classpathentry kind="src" path="src"/>
-	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-1.6"/>
-	<classpathentry kind="lib" path="lib/org.eclipse.jdt.core_3.5.1.v_972_R35x.jar"/>
-	<classpathentry kind="lib" path="lib/org.eclipse.equinox.common_3.5.1.R35x_v20090807-1100.jar"/>
-	<classpathentry kind="lib" path="lib/lucene-core-3.3.0.jar"/>
-	<classpathentry kind="lib" path="lib/org.eclipse.core.resources_3.5.1.R35x_v20090826-0451.jar"/>
-	<classpathentry kind="lib" path="lib/org.eclipse.core.jobs_3.4.100.v20090429-1800.jar"/>
-	<classpathentry kind="lib" path="lib/org.eclipse.core.runtime_3.5.0.v20090525.jar"/>
-	<classpathentry kind="lib" path="lib/org.eclipse.osgi_3.5.1.R35x_v20090827.jar"/>
-	<classpathentry kind="lib" path="lib/org.eclipse.core.contenttype_3.4.1.R35x_v20090826-0451.jar"/>
-	<classpathentry kind="lib" path="lib/org.eclipse.equinox.preferences_3.2.300.v20090520-1800.jar"/>
-	<classpathentry kind="lib" path="lib/apache-solr-core-3.3.0.jar"/>
-	<classpathentry kind="lib" path="lib/apache-solr-solrj-3.3.0.jar"/>
-	<classpathentry kind="lib" path="lib/solrj-lib/commons-codec-1.4.jar"/>
-	<classpathentry kind="lib" path="lib/solrj-lib/commons-httpclient-3.1.jar"/>
-	<classpathentry kind="lib" path="lib/solrj-lib/commons-io-1.4.jar"/>
-	<classpathentry kind="lib" path="lib/solrj-lib/geronimo-stax-api_1.0_spec-1.0.1.jar"/>
-	<classpathentry kind="lib" path="lib/solrj-lib/jcl-over-slf4j-1.6.1.jar"/>
-	<classpathentry kind="lib" path="lib/solrj-lib/slf4j-api-1.6.1.jar"/>
-	<classpathentry kind="lib" path="lib/solrj-lib/wstx-asl-3.2.7.jar"/>
-	<classpathentry kind="lib" path="lib/slf4j-simple-1.6.1.jar"/>
-	<classpathentry kind="lib" path="lib/apache-solr-analysis-extras-3.3.0.jar"/>
-	<classpathentry kind="lib" path="lib/apache-solr-cell-3.3.0.jar"/>
-	<classpathentry kind="lib" path="lib/apache-solr-clustering-3.3.0.jar"/>
-	<classpathentry kind="lib" path="lib/apache-solr-dataimporthandler-3.3.0.jar"/>
-	<classpathentry kind="lib" path="lib/apache-solr-dataimporthandler-extras-3.3.0.jar"/>
-	<classpathentry kind="lib" path="lib/apache-solr-test-framework-3.3.0.jar"/>
-	<classpathentry kind="lib" path="lib/apache-solr-uima-3.3.0.jar"/>
-	<classpathentry kind="output" path="bin"/>
+	<classpathentry including="**/*.java" kind="src" output="target/classes" path="src">
+		<attributes>
+			<attribute name="optional" value="true"/>
+			<attribute name="maven.pomderived" value="true"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-1.7">
+		<attributes>
+			<attribute name="maven.pomderived" value="true"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="con" path="org.eclipse.m2e.MAVEN2_CLASSPATH_CONTAINER">
+		<attributes>
+			<attribute name="maven.pomderived" value="true"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="con" path="org.eclipse.jdt.junit.JUNIT_CONTAINER/4"/>
+	<classpathentry kind="output" path="target/classes"/>
 </classpath>
