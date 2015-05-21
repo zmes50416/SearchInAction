@@ -22,6 +22,7 @@ import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
 
 import tw.edu.ncu.sia.util.Config;
+import tw.edu.ncu.sia.util.ServerUtil;
 
 public class MainGuiPanel extends JFrame {
 
@@ -183,6 +184,8 @@ public class MainGuiPanel extends JFrame {
 		ActionListener serverSettingListener = new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
 				Config.setServerURL();
+				ServerUtil.testServerConnected();
+				
 			}
 		};
 		iUrlSetting.addActionListener(serverSettingListener);

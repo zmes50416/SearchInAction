@@ -49,7 +49,7 @@ public class ServerUtil {
 	private static Boolean initialize(){
 		String url = Config.hosturl;
 		ConcurrentUpdateSolrServer mServer = new ConcurrentUpdateSolrServer(url,200,10); // last two parameter will determined by Computer Power. Higher mean more speedy Index
-		mServer.setSoTimeout(3000); // socket read timeout
+		mServer.setSoTimeout(5000); // socket read timeout
 		mServer.setConnectionTimeout(3000);
 		server = mServer;
 		return true;
