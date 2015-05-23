@@ -30,7 +30,7 @@ import org.apache.solr.client.solrj.response.UpdateResponse;
  */
 public class ServerUtil {
 	
-	private final static int BATCHSIZE = Integer.parseInt(Config.pref.getProperty("BatchSize","50000"));//how many docs Added before Commit, higher should increase speed but haven't know the side effect yet
+	private final static int BATCHSIZE = Integer.parseInt(Config.pref.getProperty("BatchSize","500000"));//how many docs Added before Commit, higher should increase speed but autologging will be larger and memory consumation
 	private volatile static int docsize = 0;
 	private volatile static SolrServer server=null; // Singleton Design pattern only access it by getServer() to ensure connection
 	
@@ -49,8 +49,8 @@ public class ServerUtil {
 	private static Boolean initialize(){
 		String url = Config.hosturl;
 		ConcurrentUpdateSolrServer mServer = new ConcurrentUpdateSolrServer(url,2000,10); // last two parameter will determined by Computer Power. Higher mean more speedy Index
-		mServer.setSoTimeout(8000); // socket read timeout
-		mServer.setConnectionTimeout(8000);
+		mServer.setSoTimeout(15000); // socket read timeout
+		mServer.setConnectionTimeout(15000);
 		server = mServer;
 		return true;
 	}
@@ -66,6 +66,7 @@ public class ServerUtil {
 	
 		UpdateResponse respond = getServer().add(doc);
 		if(docsize++ >= BATCHSIZE){
+			//In fact ,commit from the cilient side may not be necessary if solr have turn on the autoCommit option
 			commit();
 			docsize = 0;
 		}
