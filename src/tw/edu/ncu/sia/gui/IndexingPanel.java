@@ -165,6 +165,7 @@ public class IndexingPanel extends JPanel implements Observer{
 				if(baseDir !=null){
 					File[] files = baseDir.listFiles();
 					for(File documentDir:files){
+						textArea.append(documentDir.getName()+" Add to Task."+System.lineSeparator());
 						indexer.preProcess(documentDir);
 					}
 				}

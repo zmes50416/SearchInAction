@@ -27,13 +27,13 @@ import tw.edu.ncu.sia.util.ServerUtil;
 
 /** Index all text files under a directory. */
 public class DocIndexing extends Observable{
-	public Stack<SolrInputDocument> errorDocs;
+	public Queue<File> errorDocs;
 	public Stack<File> fileToWork;
-	public int timesOfError;
+	public volatile int timesOfError;
 	public static final int MAX_THREAD_NUM = 15;
-	public static ExecutorService taskExecutor = Executors.newFixedThreadPool(3);
+	public static ExecutorService taskExecutor = Executors.newSingleThreadExecutor();//Using MultiThread will cause lot more error
 	public DocIndexing(){
-		errorDocs = new Stack<SolrInputDocument>();
+		errorDocs = new ConcurrentLinkedQueue<File>();
 		timesOfError = 0;
 	}
 	/** Index all text files under a directory. */
@@ -48,7 +48,7 @@ public class DocIndexing extends Observable{
 		}
 	}
 	
-	void processTXT(File file){
+	void processTXT(File file) throws SolrServerException, IOException{
 		// makes a solr document
 		SolrInputDocument solrdoc = new SolrInputDocument();
 		String fileID = file.getAbsolutePath().replace('\\', '/');
@@ -59,14 +59,10 @@ public class DocIndexing extends Observable{
 		solrdoc.addField("text", getFileTxt(file));
 		
 		// Added to Server and wait for commit
-		try {
-			ServerUtil.addDocument(solrdoc);
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
+		ServerUtil.addDocument(solrdoc);
 		
 	}
-	void processHTML(File file){
+	void processHTML(File file) throws SolrServerException, IOException{
 		// makes a solr document
 		
 		SolrInputDocument solrdoc = new SolrInputDocument();
@@ -79,24 +75,7 @@ public class DocIndexing extends Observable{
 		} catch (IOException e2) {
 			e2.printStackTrace();
 		}
-		//  Added to Server and wait for commitr
-		try {
 			ServerUtil.addDocument(solrdoc);
-		} catch (Exception e) {
-			try{
-				timesOfError++;
-				errorDocs.add(solrdoc);
-				errorReport(fileID,e);
-				System.err.println("wait for one second");
-				synchronized(DocIndexing.taskExecutor){
-					taskExecutor.wait(1000);
-				} 
-			}catch (InterruptedException e1) {
-				e1.printStackTrace();
-			}
-			
-			
-		}
 		
 	}
 	
@@ -148,23 +127,24 @@ public class DocIndexing extends Observable{
 	 * 方便再度重試失敗文件
 	 */
 	public void retryError(){
-		while(!errorDocs.isEmpty()){
-			SolrInputDocument retryDoc = errorDocs.pop();
+		Stack<File> temp = new Stack<File>();
+		while (!errorDocs.isEmpty()) {
+			File retryDoc = errorDocs.poll();
 			try {
-				ServerUtil.addDocument(retryDoc);
+				if (retryDoc.getName().endsWith(".txt")) {
+					processTXT(retryDoc);
+				} else if (retryDoc.getName().endsWith(".htm")
+						|| FilenameUtils.getExtension(retryDoc.getName())
+								.equals("html")) {
+					processHTML(retryDoc);
+				}
 			} catch (SolrServerException | IOException e) {
-					try {
-						System.err.println("Sleep one second");
-						Thread.sleep(1000);
-						errorDocs.push(retryDoc);
-					} catch (InterruptedException e1) {
-						// TODO Auto-generated catch block
-						e1.printStackTrace();
-					}
+				temp.push(retryDoc);
 			}
 		}
+		errorDocs.addAll(temp);
 		this.setChanged();
-		this.notifyObservers("Retry finished");
+		this.notifyObservers("Retry finished. " + errorDocs.size() + "error left");
 		
 	}
 	private class consumeTask implements Runnable{
@@ -209,12 +189,28 @@ public class DocIndexing extends Observable{
 			}
 		}
 		
-		void indexDocument(File file){
-			if (file.getName().endsWith(".txt")) {
-					processTXT(file);			
-				}
-			else if(file.getName().endsWith(".htm")||FilenameUtils.getExtension(file.getName()).equals("html")){
+		void indexDocument(File file) {
+			try {
+				if (file.getName().endsWith(".txt")) {
+					processTXT(file);
+				} else if (file.getName().endsWith(".htm")
+						|| FilenameUtils.getExtension(file.getName()).equals("html")) {
 					processHTML(file);
+				}
+			} catch (SolrServerException | IOException e) {
+				timesOfError++;
+				errorDocs.add(file);
+				String fileID = file.getAbsolutePath().replace('\\', '/');
+				fileID = fileID.substring(fileID.indexOf("docfolder") + 9);
+				errorReport(fileID, e);
+				System.err.println("wait for one second");
+				synchronized (DocIndexing.taskExecutor) {
+					try {
+						taskExecutor.wait(1000);
+					} catch (InterruptedException e1) {
+						e1.printStackTrace();
+					}
+				}
 			}
 		}
 	}
